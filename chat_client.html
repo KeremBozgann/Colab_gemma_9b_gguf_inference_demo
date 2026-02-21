@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gemma Chat Client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-top: #f6efe4;
+      --bg-bottom: #ece6da;
+      --panel: #fffaf3;
+      --ink: #18120f;
+      --muted: #6f6259;
+      --accent: #0055ff;
+      --accent-soft: #d7e4ff;
+      --user: #101820;
+      --user-ink: #f7f5f2;
+      --ai: #f2ebe1;
+      --ai-ink: #2a1d15;
+      --error: #a00;
+      --border: #d9cfbf;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 20% 0%, #fff4d6 0%, transparent 40%),
+                  radial-gradient(circle at 100% 10%, #dbe6ff 0%, transparent 35%),
+                  linear-gradient(170deg, var(--bg-top), var(--bg-bottom));
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1120px;
+      margin: 24px auto;
+      padding: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: 0 18px 45px rgba(29, 18, 8, 0.12);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #fffdf8;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .settings { display: none; }
+
+    .row {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #40342c;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    input, textarea, button {
+      font: inherit;
+    }
+
+    input {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #cbbb9e;
+      background: #fffefb;
+      color: var(--ink);
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-soft);
+    }
+
+    .chat {
+      height: 70vh;
+      min-height: 460px;
+      overflow-y: auto;
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+      align-content: end;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+      background-size: 100% 28px;
+    }
+
+    .msg {
+      max-width: min(80%, 720px);
+      padding: 10px 12px;
+      border-radius: 13px;
+      line-height: 1.42;
+      white-space: normal;
+      word-break: break-word;
+      animation: pop-in .14s ease-out;
+    }
+
+    .msg p {
+      margin: 0 0 8px;
+    }
+
+    .msg p:last-child {
+      margin-bottom: 0;
+    }
+
+    .msg h3, .msg h4 {
+      margin: 0 0 8px;
+      line-height: 1.25;
+    }
+
+    .msg ul {
+      margin: 0 0 8px;
+      padding-left: 20px;
+    }
+
+    .msg li {
+      margin-bottom: 4px;
+    }
+
+    .msg blockquote {
+      margin: 0 0 8px;
+      padding-left: 10px;
+      border-left: 3px solid rgba(0, 0, 0, 0.2);
+    }
+
+    .msg code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .msg hr {
+      border: 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.2);
+      margin: 10px 0;
+    }
+
+    .msg.user {
+      margin-left: auto;
+      background: var(--user);
+      color: var(--user-ink);
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.ai {
+      margin-right: auto;
+      background: var(--ai);
+      color: var(--ai-ink);
+      border-bottom-left-radius: 4px;
+      border: 1px solid #e5d8c7;
+    }
+
+    .msg.error {
+      margin-right: auto;
+      background: #ffeceb;
+      color: var(--error);
+      border: 1px solid #f1b8b6;
+    }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      background: #fffdf8;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 52px;
+      max-height: 140px;
+      resize: vertical;
+      border-radius: 12px;
+      border: 1px solid #cbbb9e;
+      padding: 12px;
+      background: #fffefb;
+      color: var(--ink);
+      outline: none;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 16px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      min-height: 52px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    @keyframes pop-in {
+      from { transform: translateY(3px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 720px) {
+      .shell { margin: 0; padding: 0; }
+      .card { border-radius: 0; min-height: 100vh; }
+      .chat { height: calc(100vh - 205px); min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="card">
+      <header class="topbar">
+        <div class="title">Gemma Chat</div>
+      </header>
+
+      <section class="chat" id="chat"></section>
+
+      <form class="composer" id="composer">
+        <textarea id="message" placeholder="Type your message and press Enter"></textarea>
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const chatEl = document.getElementById("chat");
+    const formEl = document.getElementById("composer");
+    const msgEl = document.getElementById("message");
+    const sendBtn = document.getElementById("sendBtn");
+
+    const MAX_HISTORY_TURNS = 12;
+
+    let conversationHistory = [];
+    let sessionId = (globalThis.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `sess-${Date.now()}`;
+    const apiBase = normalizeBaseUrl(
+      globalThis.GEMMA_API_BASE || globalThis.location?.origin || ""
+    );
+    const apiKey = String(
+      globalThis.GEMMA_API_KEY || "alfabeta11!"
+    ).trim();
+
+    function normalizeBaseUrl(url) {
+      return (url || "").trim().replace(/\/+$/, "");
+    }
+
+    function escapeHtml(text) {
+      return (text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // Cleans malformed emphasis markers without eating spaces around **bold** spans.
+    function normalizeMarkdownEmphasis(text) {
+      let cleaned = (text || "").replace(/\r\n/g, "\n");
+      cleaned = cleaned.replace(/\*{4,}/g, "**");
+      cleaned = cleaned.replace(/\*\*([^*]+?)\*\*/g, (_m, inner) => `**${inner.trim()}**`);
+
+      const markerCount = (cleaned.match(/\*\*/g) || []).length;
+      if (markerCount % 2 === 1) {
+        const last = cleaned.lastIndexOf("**");
+        if (last >= 0) {
+          cleaned = `${cleaned.slice(0, last)}\\*\\*${cleaned.slice(last + 2)}`;
+        }
+      }
+      return cleaned;
+    }
+
+    // Turns paired straight quotes into directional quotes for cleaner Turkish typography.
+    function normalizeSmartQuotes(text) {
+      return (text || "").replace(/"([^"\n]+)"/g, "“$1”");
+    }
+
+    function applyInlineMarkdown(escapedLine) {
+      let line = escapedLine;
+      line = line.replace(/`([^`]+?)`/g, "<code>$1</code>");
+      line = line.replace(/\*\*([^*]+?)\*\*/g, "<strong>$1</strong>");
+      line = line.replace(/\*([^*]+?)\*/g, "<em>$1</em>");
+      return line;
+    }
+
+    function markdownToHtml(text) {
+      const normalized = normalizeSmartQuotes(normalizeMarkdownEmphasis(text));
+      const lines = normalized.split("\n");
+      const chunks = [];
+      let paragraph = [];
+      let inList = false;
+
+      function flushParagraph() {
+        if (!paragraph.length) return;
+        chunks.push(`<p>${paragraph.join("<br>")}</p>`);
+        paragraph = [];
+      }
+
+      function closeList() {
+        if (!inList) return;
+        chunks.push("</ul>");
+        inList = false;
+      }
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+
+        if (!line) {
+          flushParagraph();
+          closeList();
+          continue;
+        }
+
+        const h3 = line.match(/^###\s+(.+)$/);
+        const h4 = line.match(/^####\s+(.+)$/);
+        const listItem = line.match(/^-+\s+(.+)$/);
+        const quote = line.match(/^>\s+(.+)$/);
+
+        if (/^---+$/.test(line)) {
+          flushParagraph();
+          closeList();
+          chunks.push("<hr>");
+          continue;
+        }
+
+        if (h4 || h3) {
+          flushParagraph();
+          closeList();
+          if (h4) {
+            chunks.push(`<h4>${applyInlineMarkdown(escapeHtml(h4[1]))}</h4>`);
+          } else {
+            chunks.push(`<h3>${applyInlineMarkdown(escapeHtml(h3[1]))}</h3>`);
+          }
+          continue;
+        }
+
+        if (quote) {
+          flushParagraph();
+          closeList();
+          chunks.push(`<blockquote>${applyInlineMarkdown(escapeHtml(quote[1]))}</blockquote>`);
+          continue;
+        }
+
+        if (listItem) {
+          flushParagraph();
+          if (!inList) {
+            chunks.push("<ul>");
+            inList = true;
+          }
+          chunks.push(`<li>${applyInlineMarkdown(escapeHtml(listItem[1]))}</li>`);
+          continue;
+        }
+
+        closeList();
+        paragraph.push(applyInlineMarkdown(escapeHtml(rawLine)));
+      }
+
+      flushParagraph();
+      closeList();
+      return chunks.join("");
+    }
+
+    function setMessageContent(div, text, asMarkdown = false) {
+      if (asMarkdown) {
+        div.innerHTML = markdownToHtml(text);
+      } else {
+        div.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+      }
+    }
+
+    function appendMessage(role, text, asMarkdown = false) {
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+      setMessageContent(div, text, asMarkdown);
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage(userMessage) {
+      const base = apiBase;
+      const key = apiKey;
+
+      if (!base) {
+        appendMessage("error", "API base URL is missing (window.GEMMA_API_BASE).");
+        return;
+      }
+      if (!key) {
+        appendMessage("error", "x-api-key is missing (window.GEMMA_API_KEY).");
+        return;
+      }
+      appendMessage("user", userMessage, false);
+      const pending = appendMessage("ai", "Thinking...", false);
+
+      sendBtn.disabled = true;
+      msgEl.disabled = true;
+
+      try {
+        // Prefer stateful chat endpoint. Fallback to /generate for compatibility.
+        const chatRes = await fetch(`${base}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": key
+          },
+          body: JSON.stringify({
+            user_message: userMessage,
+            session_id: sessionId,
+            history: conversationHistory
+          })
+        });
+
+        let res = chatRes;
+        let data = await res.json().catch(() => ({}));
+
+        if (res.status === 404) {
+          res = await fetch(`${base}/generate`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": key
+            },
+            body: JSON.stringify({ user_message: userMessage })
+          });
+          data = await res.json().catch(() => ({}));
+        }
+
+        if (!res.ok) {
+          throw new Error(data.detail || `HTTP ${res.status}`);
+        }
+
+        const assistantText = (data.text || "").trim() || "(Empty response)";
+        setMessageContent(pending, assistantText, true);
+
+        if (typeof data.session_id === "string" && data.session_id.trim()) {
+          sessionId = data.session_id.trim();
+        }
+        conversationHistory.push(
+          { role: "user", content: userMessage },
+          { role: "assistant", content: assistantText }
+        );
+        const maxItems = MAX_HISTORY_TURNS * 2;
+        if (conversationHistory.length > maxItems) {
+          conversationHistory = conversationHistory.slice(-maxItems);
+        }
+      } catch (err) {
+        pending.remove();
+        appendMessage("error", `Request failed: ${err.message}`, false);
+      } finally {
+        sendBtn.disabled = false;
+        msgEl.disabled = false;
+        msgEl.focus();
+      }
+    }
+
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = msgEl.value.trim();
+      if (!text) return;
+      msgEl.value = "";
+      await sendMessage(text);
+    });
+
+    msgEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        formEl.requestSubmit();
+      }
+    });
+
+    appendMessage("ai", "Hazır. Mesaj gönder.", false);
+  </script>
+</body>
+</html>

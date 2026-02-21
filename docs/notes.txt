@@ -1,0 +1,12 @@
+--- On setting: CUDA_VISIBLE_DEVICES="-1"
+OLLAMA_LLM_LIBRARY="cpu" in both boot.py and install_model.py:
+
+  in boot.py: start the Ollama server for inference
+
+  in install_model.py: ollama create , ollama show and ollama -v calls
+---
+
+
+
+
+

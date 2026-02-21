@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+models
+other
+ollama
+datasets
+artifacts
+__pycache__
+.DS_Store
+uv.lock

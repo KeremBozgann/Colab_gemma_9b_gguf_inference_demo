@@ -1,0 +1,12 @@
+kaggle seq_cls: 
+https://www.kaggle.com/code/emiz6413/training-gemma-2-9b-4-bit-qlora-fine-tuning
+
+fine-tune medium: 
+https://medium.com/@clturner23/fine-tuning-hugging-face-llms-with-qlora-31be90a49a41
+
+toygar profanity finetune dataset: 
+https://huggingface.co/datasets/Toygar/turkish-offensive-language-detection/viewer/default/train?p=6&row=618
+
+
+dolly 15k fine-tune dataset: 
+https://huggingface.co/datasets/databricks/databricks-dolly-15k
