@@ -1,5 +1,4 @@
 import argparse
-import fnmatch
 import json
 from pathlib import Path
 
@@ -8,7 +7,7 @@ from llama_cpp import Llama
 # Model + generation settings
 CONFIG = {
     "repo_id": "ytu-ce-cosmos/Turkish-Gemma-9b-T1-GGUF",
-    "filename": "*Q4_K_M.gguf",
+    "filename": "Turkish-Gemma-9b-T1.Q4_K_M.gguf",
     "n_ctx": 4096,
     "n_threads": 4,
     "max_tokens": 1024,
@@ -31,17 +30,17 @@ HISTORY_PATH = Path("cosmos_t1_chat_history.json")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run interactive GGUF chat. Optionally cache/load model at --save_load_path "
-            "to avoid re-downloading each Colab restart."
+            "Run interactive GGUF chat using a required local/Drive GGUF cache path "
+            "via --save_load_path."
         )
     )
     parser.add_argument(
         "--save_load_path",
         "--save-load-path",
-        default="",
+        required=True,
         help=(
-            "Optional file or directory path for GGUF persistence. "
-            "If omitted, uses Llama.from_pretrained default behavior."
+            "Required file or directory path for GGUF persistence/download cache. "
+            "The script downloads via huggingface_hub and loads the local GGUF file."
         ),
     )
     parser.add_argument(
@@ -112,34 +111,23 @@ def sanitize_assistant_text(text: str) -> str:
     """
     raw = text.strip()
     if not raw:
-        return raw
+        return ""
 
     if "</think>" in raw:
         # Keep only content after the last closing think tag.
         tail = raw.rsplit("</think>", 1)[-1].strip()
         if tail:
             return tail
+        return ""
 
     return raw
 
 
-def resolve_repo_filename(repo_id: str, pattern: str) -> str:
-    if "*" not in pattern and "?" not in pattern and "[" not in pattern:
-        return pattern
-
-    try:
-        from huggingface_hub import list_repo_files
-    except ImportError as error:
-        raise RuntimeError(
-            "huggingface_hub is required to resolve wildcard filename patterns. "
-            "Install it with: pip install huggingface_hub"
-        ) from error
-
-    candidates = [name for name in list_repo_files(repo_id) if fnmatch.fnmatch(name, pattern)]
-    if not candidates:
-        raise FileNotFoundError(f"No files in {repo_id} match pattern: {pattern}")
-    candidates.sort()
-    return candidates[0]
+def get_repo_filename() -> str:
+    filename = str(CONFIG["filename"]).strip()
+    if not filename:
+        raise ValueError("CONFIG['filename'] must be a non-empty GGUF filename.")
+    return filename
 
 
 def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
@@ -150,23 +138,19 @@ def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
         + f" (n_gpu_layers={n_gpu_layers})"
     )
 
-    if not save_load_path:
-        return Llama.from_pretrained(
-            repo_id=CONFIG["repo_id"],
-            filename=CONFIG["filename"],
-            n_ctx=CONFIG["n_ctx"],
-            n_threads=CONFIG["n_threads"],
-            n_gpu_layers=n_gpu_layers,
-            verbose=False,
-        )
-
     target = Path(save_load_path).expanduser().resolve()
+    repo_filename = get_repo_filename()
 
     # If user gives a file path, use it directly when present; otherwise download there.
     if target.suffix.lower() == ".gguf":
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
-            selected_name = resolve_repo_filename(CONFIG["repo_id"], CONFIG["filename"])
+            if target.name != repo_filename:
+                raise FileNotFoundError(
+                    "Target GGUF file does not exist and filename does not match the configured "
+                    f"repo filename. Expected '{repo_filename}', got '{target.name}'. "
+                    "Use a matching file path or update CONFIG['filename']."
+                )
             try:
                 from huggingface_hub import hf_hub_download
             except ImportError as error:
@@ -174,17 +158,15 @@ def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
                     "huggingface_hub is required for download mode. "
                     "Install it with: pip install huggingface_hub"
                 ) from error
-            print(f"Downloading {selected_name} to {target}")
-            downloaded_path = Path(
+            print(f"Downloading {repo_filename} to {target.parent}")
+            target = Path(
                 hf_hub_download(
-                repo_id=CONFIG["repo_id"],
-                filename=selected_name,
-                local_dir=str(target.parent),
-                local_files_only=False,
+                    repo_id=CONFIG["repo_id"],
+                    filename=repo_filename,
+                    local_dir=str(target.parent),
+                    local_files_only=False,
+                )
             )
-            )
-            if downloaded_path.resolve() != target.resolve() and downloaded_path.exists():
-                downloaded_path.replace(target)
         print(f"Loading GGUF from local file: {target}")
         return Llama(
             model_path=str(target),
@@ -196,9 +178,8 @@ def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
 
     # Directory path: reuse existing match first; otherwise download into directory.
     target.mkdir(parents=True, exist_ok=True)
-    matches = sorted(target.glob(CONFIG["filename"]))
-    if matches:
-        gguf_file = matches[0]
+    gguf_file = target / repo_filename
+    if gguf_file.exists():
         print(f"Loading cached GGUF: {gguf_file}")
         return Llama(
             model_path=str(gguf_file),
@@ -208,7 +189,6 @@ def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
             verbose=False,
         )
 
-    selected_name = resolve_repo_filename(CONFIG["repo_id"], CONFIG["filename"])
     try:
         from huggingface_hub import hf_hub_download
     except ImportError as error:
@@ -217,16 +197,15 @@ def create_model(save_load_path: str, use_gpu: bool, gpu_layers: int) -> Llama:
             "Install it with: pip install huggingface_hub"
         ) from error
 
-    print(f"No cached GGUF found in {target}. Downloading: {selected_name}")
-    downloaded_path = Path(
+    print(f"No cached GGUF found at {gguf_file}. Downloading: {repo_filename}")
+    gguf_file = Path(
         hf_hub_download(
-        repo_id=CONFIG["repo_id"],
-        filename=selected_name,
-        local_dir=str(target),
-        local_files_only=False,
+            repo_id=CONFIG["repo_id"],
+            filename=repo_filename,
+            local_dir=str(target),
+            local_files_only=False,
+        )
     )
-    )
-    gguf_file = downloaded_path
     print(f"Loading downloaded GGUF: {gguf_file}")
     return Llama(
         model_path=str(gguf_file),
