@@ -1,0 +1,6 @@
+- run_cosmos_t1_gguf.ipynb to install (with hf_hub_download call inside run_cosmos_t1_gguf.py) and test the gguf model using llama-cpp-python package to run the model for inference (without needing ollama)
+
+- Run register_to_ollama.ipynb to register a model that exists in the drive path
+note:install_model.py (called in  server_inference_ytu_ce_cosmos_Turkish_Gemma_9b_v0_1_databricks.ipynb by boot.py) installs the model from hf  and registers the model with ollama. it is not possible to register an already existing model in the drive
+
+- server_inference_ytu_ce_cosmos_Turkish_Gemma_9b_v0_1_databricks.ipynb  starts the server and we are ready to go

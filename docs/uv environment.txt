@@ -1,0 +1,3 @@
+UV_PROJECT_ENVIRONMENT="/Users/kerembozgan/Desktop/training-embedding-venv" uv run python hf_quantize_model.py \
+
+source "/Users/kerembozgan/Desktop/training-embedding-venv/.venv/bin/activate"

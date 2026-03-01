@@ -1,0 +1,19 @@
+[project]
+name = "training-embedding"
+version = "0.1.0"
+description = "Local utilities for HF-to-GGUF conversion workflows."
+readme = "resources.txt"
+requires-python = ">=3.10"
+dependencies = [
+  "huggingface_hub>=0.24.0,<1.0.0",
+  "transformers>=4.45.0,<5.0.0",
+  "sentencepiece>=0.2.0",
+  "torch>=2.4.0",
+]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
