@@ -271,16 +271,31 @@
     ).trim();
 
     function normalizeBaseUrl(url) {
-      return (url || "").trim().replace(/\/+$/, "");
+      let value = (url || "").trim();
+      while (value.endsWith("/")) {
+        value = value.slice(0, -1);
+      }
+      return value;
     }
 
     function escapeHtml(text) {
-      return (text || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+      let escaped = "";
+      for (const ch of (text || "")) {
+        if (ch === "&") {
+          escaped += "&amp;";
+        } else if (ch === "<") {
+          escaped += "&lt;";
+        } else if (ch === ">") {
+          escaped += "&gt;";
+        } else if (ch === "\"") {
+          escaped += "&quot;";
+        } else if (ch === "'") {
+          escaped += "&#39;";
+        } else {
+          escaped += ch;
+        }
+      }
+      return escaped;
     }
 
     // Cleans malformed emphasis markers without eating spaces around **bold** spans.
@@ -331,6 +346,34 @@
         inList = false;
       }
 
+      function getLinePayload(value, prefix) {
+        if (!value.startsWith(prefix)) return null;
+        const payload = value.slice(prefix.length).trim();
+        return payload || null;
+      }
+
+      function getListItemPayload(value) {
+        if (!value.startsWith("-")) return null;
+        let i = 0;
+        while (i < value.length && value[i] === "-") {
+          i += 1;
+        }
+        if (i === value.length || value[i] !== " ") return null;
+        while (i < value.length && value[i] === " ") {
+          i += 1;
+        }
+        const payload = value.slice(i);
+        return payload || null;
+      }
+
+      function isHorizontalRule(value) {
+        if (value.length < 3) return false;
+        for (const ch of value) {
+          if (ch !== "-") return false;
+        }
+        return true;
+      }
+
       for (const rawLine of lines) {
         const line = rawLine.trim();
 
@@ -340,12 +383,12 @@
           continue;
         }
 
-        const h3 = line.match(/^###\s+(.+)$/);
-        const h4 = line.match(/^####\s+(.+)$/);
-        const listItem = line.match(/^-+\s+(.+)$/);
-        const quote = line.match(/^>\s+(.+)$/);
+        const h4 = getLinePayload(line, "#### ");
+        const h3 = getLinePayload(line, "### ");
+        const listItem = getListItemPayload(line);
+        const quote = getLinePayload(line, "> ");
 
-        if (/^---+$/.test(line)) {
+        if (isHorizontalRule(line)) {
           flushParagraph();
           closeList();
           chunks.push("<hr>");
@@ -356,9 +399,9 @@
           flushParagraph();
           closeList();
           if (h4) {
-            chunks.push(`<h4>${applyInlineMarkdown(escapeHtml(h4[1]))}</h4>`);
+            chunks.push(`<h4>${applyInlineMarkdown(escapeHtml(h4))}</h4>`);
           } else {
-            chunks.push(`<h3>${applyInlineMarkdown(escapeHtml(h3[1]))}</h3>`);
+            chunks.push(`<h3>${applyInlineMarkdown(escapeHtml(h3))}</h3>`);
           }
           continue;
         }
@@ -366,7 +409,7 @@
         if (quote) {
           flushParagraph();
           closeList();
-          chunks.push(`<blockquote>${applyInlineMarkdown(escapeHtml(quote[1]))}</blockquote>`);
+          chunks.push(`<blockquote>${applyInlineMarkdown(escapeHtml(quote))}</blockquote>`);
           continue;
         }
 
@@ -376,7 +419,7 @@
             chunks.push("<ul>");
             inList = true;
           }
-          chunks.push(`<li>${applyInlineMarkdown(escapeHtml(listItem[1]))}</li>`);
+          chunks.push(`<li>${applyInlineMarkdown(escapeHtml(listItem))}</li>`);
           continue;
         }
 
