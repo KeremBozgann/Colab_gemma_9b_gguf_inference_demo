@@ -40,6 +40,7 @@
       max-width: 1120px;
       margin: 24px auto;
       padding: 16px;
+      height: calc(100dvh - 48px);
     }
 
     .card {
@@ -48,6 +49,9 @@
       overflow: hidden;
       background: var(--panel);
       box-shadow: 0 18px 45px rgba(29, 18, 8, 0.12);
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
     }
 
     .topbar {
@@ -100,13 +104,12 @@
     }
 
     .chat {
-      height: 70vh;
-      min-height: 460px;
+      min-height: 0;
       overflow-y: auto;
       padding: 16px;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 10px;
-      align-content: end;
       background-image: linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px);
       background-size: 100% 28px;
     }
@@ -229,9 +232,8 @@
     }
 
     @media (max-width: 720px) {
-      .shell { margin: 0; padding: 0; }
-      .card { border-radius: 0; min-height: 100vh; }
-      .chat { height: calc(100vh - 205px); min-height: 0; }
+      .shell { margin: 0; padding: 0; height: 100dvh; }
+      .card { border-radius: 0; height: 100dvh; }
     }
   </style>
 </head>
@@ -440,12 +442,23 @@
       }
     }
 
-    function appendMessage(role, text, asMarkdown = false) {
+    function isNearBottom(threshold = 80) {
+      return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < threshold;
+    }
+
+    function scrollToBottom() {
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function appendMessage(role, text, asMarkdown = false, forceScroll = false) {
+      const shouldScroll = forceScroll || isNearBottom();
       const div = document.createElement("div");
       div.className = `msg ${role}`;
       setMessageContent(div, text, asMarkdown);
       chatEl.appendChild(div);
-      chatEl.scrollTop = chatEl.scrollHeight;
+      if (shouldScroll) {
+        scrollToBottom();
+      }
       return div;
     }
 
@@ -461,8 +474,8 @@
         appendMessage("error", "x-api-key is missing (window.GEMMA_API_KEY).");
         return;
       }
-      appendMessage("user", userMessage, false);
-      const pending = appendMessage("ai", "Thinking...", false);
+      appendMessage("user", userMessage, false, true);
+      const pending = appendMessage("ai", "Thinking...", false, true);
 
       sendBtn.disabled = true;
       msgEl.disabled = true;
@@ -501,8 +514,14 @@
           throw new Error(data.detail || `HTTP ${res.status}`);
         }
 
-        const assistantText = (data.text || "").trim() || "(Empty response)";
+        const assistantText = (data.text || "").trim();
+        if (!assistantText) {
+          throw new Error(data.detail || "Empty response from server");
+        }
         setMessageContent(pending, assistantText, true);
+        if (isNearBottom()) {
+          scrollToBottom();
+        }
 
         if (typeof data.session_id === "string" && data.session_id.trim()) {
           sessionId = data.session_id.trim();
